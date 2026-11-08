@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { cn } from '@/lib/cn';
+import { feedbackTemplate, feedbackTemplateParams } from '@/lib/feedback-templates';
 import type { Language } from '@/lib/i18n';
 import { siteUrl } from '@/lib/shared';
 import { postSupport, readSupportError, supportErrorMessage } from '@/lib/support-client';
@@ -191,6 +192,8 @@ type PanelForm = {
   key: number;
   category?: ContactCategory;
   subject?: string;
+  /** Starting text for the feedback form, from a `?from=` app link. */
+  message?: string;
   draftId?: number;
 };
 
@@ -413,15 +416,20 @@ export function SupportWidget({ lang }: { lang: Language }) {
     const kind = params.get('support');
     if (kind !== 'contact' && kind !== 'feedback') return;
     const category = params.get('category');
-    openForm({ kind, category: isContactCategory(category) ? category : undefined });
+    openForm({
+      kind,
+      category: isContactCategory(category) ? category : undefined,
+      message: kind === 'feedback' ? feedbackTemplate(lang, params) : undefined,
+    });
 
     params.delete('support');
     params.delete('category');
+    for (const key of feedbackTemplateParams) params.delete(key);
     const search = params.toString();
     router.history.replace(
       `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`,
     );
-  }, [router]);
+  }, [router, lang]);
 
   function updateAnswer(id: number, update: (message: UiMessage) => UiMessage) {
     setMessages((current) => current.map((m) => (m.id === id ? update(m) : m)));
@@ -911,7 +919,7 @@ export function SupportWidget({ lang }: { lang: Language }) {
                   key={form.key}
                   lang={lang}
                   chat={formChat}
-                  defaultMessage={formDraft?.message}
+                  defaultMessage={formDraft?.message ?? form.message}
                   defaultEmail={formDraft?.email}
                 />
               )}
